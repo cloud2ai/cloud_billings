@@ -1,0 +1,94 @@
+# Build system configuration
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Project metadata
+[project]
+name = "cloud-billings"
+version = "0.1.0"
+description = "This project monitors cloud platform billing in real time to help identify abnormal spending and prevent resource waste."
+authors = [
+    {name = "Ray Sun", email = "xiaoquqi@gmail.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Core dependencies
+dependencies = [
+    "boto3>=1.28.0",
+    "typing-extensions>=4.7.0",
+    "requests>=2.31.0",
+    "huaweicloudsdkcore>=3.1.50",
+    "huaweicloudsdkbss>=3.1.50",
+    "huaweicloudsdkbssintl>=3.1.50",
+]
+
+# Package configuration
+[tool.setuptools]
+packages = ["cloud_billings"]
+
+# Optional dependencies
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "black>=23.7.0",
+    "flake8>=6.1.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+
+# Documentation dependencies
+docs = [
+    "mkdocs>=1.5.3",
+    "mkdocstrings>=0.24.0"
+]
+
+[project.scripts]
+cloud-billing-monitor = "cloud_billings.run_monitor:main"
+
+[tool.black]
+line-length = 79
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 79
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=cloud_billings --cov-report=term-missing"
