@@ -8,7 +8,7 @@ import logging
 import csv
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 
 from cloud_billings.clouds.service import BillingService
@@ -27,7 +27,9 @@ class BillingMonitor:
         self, 
         config_file: str, 
         data_dir: str, 
-        webhook_url: str = None
+        webhook_url: str = None,
+        cost_threshold: float = 10.0,
+        growth_threshold: float = 5.0
     ):
         """Initialize billing monitor.
 
@@ -39,6 +41,8 @@ class BillingMonitor:
         self.config_file = config_file
         self.data_dir = data_dir
         self.webhook_url = webhook_url
+        self.cost_threshold = cost_threshold
+        self.growth_threshold = growth_threshold
         self._ensure_data_dir()
 
     def _ensure_data_dir(self):
@@ -112,22 +116,17 @@ class BillingMonitor:
         Returns:
             Optional[Dict[str, Any]]: Previous billing data if exists
         """
-        files = [
-            f for f in os.listdir(self.data_dir)
-            if f.startswith(provider_name) and f.endswith('.json')
-        ]
-        if not files:
+        # Get previous hour's timestamp
+        previous_hour = datetime.now() - timedelta(hours=1)
+        previous_hour_file = (
+            f"{provider_name}_{previous_hour.strftime('%Y-%m-%d-%H')}.json"
+        )
+        
+        previous_file_path = os.path.join(self.data_dir, previous_hour_file)
+        if not os.path.exists(previous_file_path):
             return None
 
-        # 获取当前小时的文件名
-        current_file = self._get_current_hour_file(provider_name)
-        # 排除当前小时的文件
-        files = [f for f in files if f != current_file]
-        if not files:
-            return None
-
-        latest_file = max(files)
-        with open(os.path.join(self.data_dir, latest_file), 'r') as f:
+        with open(previous_file_path, 'r') as f:
             return json.load(f)
 
     def _fetch_and_save_billing(
@@ -196,7 +195,8 @@ class BillingMonitor:
         self,
         provider_name: str,
         current_data: Optional[Dict[str, Any]],
-        threshold: float = 5
+        cost_threshold: float = 10.0,
+        growth_threshold: float = 5.0
     ) -> Optional[Dict[str, Any]]:
         """Compare current billing with previous billing.
 
@@ -221,18 +221,21 @@ class BillingMonitor:
         logger.info(msg)
         
         if previous_cost > 0:
-            increase_percent = (
-                (current_cost - previous_cost) / previous_cost
-            ) * 100
-            msg = f"increase_percent: {increase_percent} {threshold}"
+            increase_cost = current_cost - previous_cost
+            increase_percent = increase_cost / previous_cost * 100
+            msg = f"increase: {increase_cost} {increase_percent}"
             logger.info(msg)
             
-            if increase_percent > threshold:
+            if (
+                   increase_percent > growth_threshold or
+                   increase_cost > cost_threshold
+               ):
                 return {
                     'provider_name': provider_name,
                     'current_cost': current_cost,
                     'previous_cost': previous_cost,
                     'increase_percent': increase_percent,
+                    'increase_cost': increase_cost,
                     'currency': current_data['currency']
                 }
         
@@ -271,7 +274,9 @@ class BillingMonitor:
                 # Step 2: Compare with previous billing
                 alert_data = self._compare_billing_data(
                     provider_name, 
-                    current_data
+                    current_data,
+                    self.cost_threshold,
+                    self.growth_threshold
                 )
                 if alert_data:
                     alert_data['display_name'] = display_name
@@ -281,14 +286,13 @@ class BillingMonitor:
                 logger.info(f"alerts: {alerts}")
                 alert_messages = []
                 for alert in alerts:
-                    increse_cost = round(
-                        alert['current_cost'] - alert['previous_cost'], 
-                        2
-                    )
+                    increase_cost = round(alert['increase_cost'], 2)
+                    increase_percent = round(alert['increase_percent'], 2)
                     currency = alert['currency']
                     msg = (
                         f"{alert['display_name']} 账户在过去一小时的消费增长了 "
-                        f"{increse_cost} {currency}\n"
+                        f"{increase_cost} {currency}，"
+                        f"增长率为 {increase_percent}%\n"
                     )
                     alert_messages.append(msg)
 

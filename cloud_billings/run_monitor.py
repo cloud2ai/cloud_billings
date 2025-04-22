@@ -50,6 +50,18 @@ def parse_args():
         required=False,
         help='Webhook URL for alerts'
     )
+    parser.add_argument(
+        '--cost-threshold',
+        type=float,
+        default=10.0,
+        help='Cost threshold in current currency (default: 10.0)'
+    )
+    parser.add_argument(
+        '--growth-threshold',
+        type=float,
+        default=5.0,
+        help='Growth threshold in percentage (default: 5.0)'
+    )
     return parser.parse_args()
 
 
@@ -79,7 +91,11 @@ def main():
         ensure_data_dir(args.data_dir)
 
         # Create and run monitor
-        monitor = BillingMonitor(args.config, args.data_dir, args.webhook_url)
+        monitor = BillingMonitor(args.config,
+                                 args.data_dir,
+                                 args.webhook_url,
+                                 args.cost_threshold,
+                                 args.growth_threshold)
         monitor.run()
 
     except Exception as e:
